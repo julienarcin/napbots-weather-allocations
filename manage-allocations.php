@@ -199,12 +199,11 @@ foreach($exchanges as $exchangeId => $exchange) {
 	if (! $dry_run){
 		$response = curl_exec ($ch);
 		curl_close($ch);
+		// Log
+		echo "Updated allocation for exchange " .$exchanges_names[$exchangeId] . " ". $exchangeId . "\n";
 	}
 	else{
 		echo "DRY RUN MODE\n";
 		echo "nothing was done to your account\n";
 	}
-
-	// Log
-	echo "Updated allocation for exchange " .$exchanges_names[$exchangeId] . " ". $exchangeId . "\n";
 }
