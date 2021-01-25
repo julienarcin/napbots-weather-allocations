@@ -166,7 +166,10 @@ foreach($exchanges as $exchangeId => $exchange) {
 	// If composition different, set to update
 	if(array_diff($exchange['compo'], $compositionToSet['compo'])) {
 		$toUpdate = true;
-		if (true == $verbose) echo var_dump(array_diff($exchange['compo'], $compositionToSet['compo']));
+		if (true == $verbose){
+			echo "your old allocation was\n";
+			echo var_dump(array_diff($exchange['compo'], $compositionToSet['compo']));
+		}
 	}
 
 	// If composition different, update allocation for this exchange
