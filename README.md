@@ -1,6 +1,13 @@
 # napbots-weather-allocations
 
-## usage 
+## simple
+copy the file, change the file config
+
+launche the file
+
+	php manage-allocations.php
+
+## advanced  usage 
 rename config.example.php to config.php
 
 change config.php settings
