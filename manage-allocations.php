@@ -58,7 +58,7 @@ $verbose = false;
 $dry_run = false;
 $exchange_ignore_list = [];
 
-if (file_exists(config.php)){
+if (file_exists('config.php')){
 	include 'config.php';
 }
 
@@ -78,6 +78,26 @@ if($weather === 'Extreme markets') {
 } else {
 	throw new \Exception('Invalid crypto-weather: ' . $weather);
 }
+
+
+function check_compositions($compositions)
+{
+	global $verbose;
+	foreach($compositions as $weather => $composition) {
+		if (true == $verbose) echo("[$weather]\n");
+		$sum = 0.0;
+		foreach($composition['compo'] as $val){
+			if (true == $verbose) echo("add $val\n");
+			$sum = floatval($val) + $sum;
+		}
+		if (true == $verbose) echo($sum."\n");
+		if (1 != $sum){
+			throw new \Exception("sum of you allocations for [$weather] is [$sum] it should be 1.0, check your numbers.");
+		}
+	}
+}
+
+check_compositions($compositions);
 
 // Log
 echo "Crypto-weather is: " . $weather . "\n";
