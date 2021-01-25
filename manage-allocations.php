@@ -50,14 +50,18 @@ $compositions = [
 	]
 ];
 
+/**
+ * Script (do not touch here)
+ */
+
+$verbose = false;
+$dry_run = false;
+$exchange_ignore_list = [];
+
 if (file_exists(config.php)){
 	include 'config.php';
 }
 
-
-/**
- * Script (do not touch here)
- */
 
 // Get crypto weather
 $weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
