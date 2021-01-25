@@ -87,7 +87,7 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
 curl_setopt($ch, CURLOPT_POST, 1);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['email' => $email, 'password' => $password])); 
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']); 
-$response=curl_exec ($ch);
+$response = curl_exec ($ch);
 curl_close($ch);
 
 $authToken = json_decode($response,true)['data']['accessToken'];
@@ -100,7 +100,7 @@ $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/account/for-user/' . $userId);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'token: ' . $authToken]); 
-$response=curl_exec ($ch);
+$response = curl_exec ($ch);
 curl_close($ch);
 
 $data = json_decode($response,true)['data'];
@@ -112,8 +112,17 @@ echo "auth napbot OK\n";
 $exchanges = [];
 $exchanges_names = [];
 foreach($data as $exchange) {
-	if(empty($exchange['accountId']) || empty($exchange['compo'])) {
-		throw new \Exception('Invalid exchange data');
+	if (in_array($exchange['exchange'], $exchange_ignore_list)){
+		echo "as requested, ignoring [".$exchange['exchange']."]\n";
+	       	continue;
+	}
+
+	if(empty($exchange['accountId']))
+	{
+		throw new \Exception('no exchange found');
+	} else if (empty($exchange['compo'])) {
+		var_dump($exchange);
+		throw new \Exception("Invalid exchange data for [$exchange]");
 	}
 
 	$exchanges[$exchange['accountId']] = $exchange['compo'];
@@ -131,8 +140,9 @@ foreach($exchanges as $exchangeId => $exchange) {
 	}
 
 	// If composition different, set to update
-	if(array_diff($exchange['compo'],$compositionToSet['compo'])) {
+	if(array_diff($exchange['compo'], $compositionToSet['compo'])) {
 		$toUpdate = true;
+		if (true == $verbose) echo var_dump(array_diff($exchange['compo'], $compositionToSet['compo']));
 	}
 
 	// If composition different, update allocation for this exchange
