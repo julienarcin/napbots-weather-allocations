@@ -63,20 +63,32 @@ if (file_exists('config.php')){
 }
 
 
-// Get crypto weather
-$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
-if($weatherApi) {
-	$weather = json_decode($weatherApi,true)['data']['weather']['weather'];
+function get_market(){
+	// Get crypto weather
+	$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
+	if($weatherApi) {
+		$weather = json_decode($weatherApi,true)['data']['weather']['weather'];
+	}
+	return $weather;
 }
-// Find composition to set
-if($weather === 'Extreme markets') {
-	$compositionToSet = $compositions['extreme'];
-} elseif($weather === 'Mild bull markets'){
-	$compositionToSet = $compositions['mild_bull'];
-} elseif($weather === 'Mild bear or range markets') {
-	$compositionToSet = $compositions['mild_bear'];
-} else {
-	throw new \Exception('Invalid crypto-weather: ' . $weather);
+
+function assign_composition($weather){
+	$compositionToSet = null;
+	global $compositions;
+	// Find composition to set
+	if($debug) echo "enter assign_composition [$weather]\n";
+	if($weather === 'Extreme markets') {
+		$compositionToSet = $compositions['extreme'];
+	} elseif($weather === 'Mild bull markets'){
+		$compositionToSet = $compositions['mild_bull'];
+	} elseif($weather === 'Mild bear or range markets') {
+		$compositionToSet = $compositions['mild_bear'];
+	} else {
+		throw new \Exception('Invalid crypto-weather: ' . $weather);
+	}
+	if($debug) echo "OUT assign_composition [$compositionToSet]\n";
+	if($debug) var_dump($compositionToSet);
+	return $compositionToSet;
 }
 
 
