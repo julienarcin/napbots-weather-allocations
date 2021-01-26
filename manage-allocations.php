@@ -54,6 +54,7 @@ $compositions = [
  * Script (do not touch here)
  */
 
+$debug = false;
 $verbose = false;
 $dry_run = false;
 $exchange_ignore_list = [];
@@ -63,41 +64,100 @@ if (file_exists('config.php')){
 }
 
 
-// Get crypto weather
-$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
-if($weatherApi) {
-	$weather = json_decode($weatherApi,true)['data']['weather']['weather'];
-}
-// Find composition to set
-if($weather === 'Extreme markets') {
-	$compositionToSet = $compositions['extreme'];
-} elseif($weather === 'Mild bull markets'){
-	$compositionToSet = $compositions['mild_bull'];
-} elseif($weather === 'Mild bear or range markets') {
-	$compositionToSet = $compositions['mild_bear'];
-} else {
-	throw new \Exception('Invalid crypto-weather: ' . $weather);
+function get_market(){
+	// Get crypto weather
+	$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
+	if($weatherApi) {
+		$weather = json_decode($weatherApi,true)['data']['weather']['weather'];
+	}
+	return $weather;
 }
 
+function assign_composition($weather){
+	$compositionToSet = null;
+	global $compositions;
+	// Find composition to set
+	if($debug) echo "enter assign_composition [$weather]\n";
+	if($weather === 'Extreme markets') {
+		$compositionToSet = $compositions['extreme'];
+	} elseif($weather === 'Mild bull markets'){
+		$compositionToSet = $compositions['mild_bull'];
+	} elseif($weather === 'Mild bear or range markets') {
+		$compositionToSet = $compositions['mild_bear'];
+	} else {
+		throw new \Exception('Invalid crypto-weather: ' . $weather);
+	}
+	if($debug) echo "OUT assign_composition [$compositionToSet]\n";
+	if($debug) var_dump($compositionToSet);
+	return $compositionToSet;
+}
+
+function handle_args(){
+	global $argv;
+	global $verbose;
+	global $forced_market;
+	global $dry_run;
+	if(count($argv) > 1){
+		if ($debug) { var_dump($argv); }
+		if (in_array("force", $argv)) {
+			if (in_array("extreme", $argv)) {
+				$forced_market = "extreme";
+			}
+			elseif (in_array("mild_bull", $argv)) {
+				$forced_market = "mild_bull";
+			}
+			elseif (in_array("mild_bear", $argv)) {
+				$forced_market = "mild_bear";
+			}
+			echo "forced market to [$forced_market]\n";
+		}
+		if (in_array("dry", $argv)) { $dry_run = true; }
+		if (in_array("verbose", $argv)) { $verbose = true; }
+		if (in_array("debug", $argv)) { $verbose = true; $debug = true; }
+	}
+}
 
 function check_compositions($compositions)
 {
 	global $verbose;
 	foreach($compositions as $weather => $composition) {
-		if (true == $verbose) echo("[$weather]\n");
+		if ($debug) echo("[$weather]\n");
 		$sum = 0.0;
 		foreach($composition['compo'] as $val){
-			if (true == $verbose) echo("add $val\n");
+			if (true === $debug) echo("add $val\n");
 			$sum = floatval($val) + $sum;
 		}
-		if (true == $verbose) echo($sum."\n");
+		if ($debug) echo("sum: ".$sum."\n");
 		if (1 != $sum){
 			throw new \Exception("sum of you allocations for [$weather] is [$sum] it should be 1.0, check your numbers.");
 		}
 	}
+	if($verbose) echo "composition sum is OK (1)\n";
 }
 
+
+$forced_market = "";
+handle_args();
+
 check_compositions($compositions);
+if ("" === $forced_market) {
+	$weather = get_market();
+	$compositionToSet = assign_composition($weather);
+} else {
+	$weather = "FORCED";
+	$compositionToSet = $compositions[$forced_market];
+}
+
+if ($verbose){
+	echo "weather          [$weather]\n";
+	echo "forced           [$forced_market]\n";
+	echo "simulation mode  [$dry_run]\n";
+	echo "compositionToSet [$compositionToSet]\n";
+	if($debug) var_dump($compositionToSet);
+}
+
+if('array' != gettype($compositionToSet)) 
+	throw new \Exception("error [$compositionToSet] is not an array, script is broken somewhere CANCELING EVERYTHING.\nAccount left untouched.\n\n");
 
 // Log
 echo "Crypto-weather is: " . $weather . "\n";
@@ -166,7 +226,7 @@ foreach($exchanges as $exchangeId => $exchange) {
 	// If composition different, set to update
 	if(array_diff($exchange['compo'], $compositionToSet['compo'])) {
 		$toUpdate = true;
-		if (true == $verbose){
+		if ($verbose){
 			echo "your old allocation was\n";
 			echo var_dump(array_diff($exchange['compo'], $compositionToSet['compo']));
 		}
