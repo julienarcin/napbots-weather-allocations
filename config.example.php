@@ -54,29 +54,32 @@ $compositions = [
 
 
 /*
- * some ids on 2021-01-25
-STRAT_BTC_ETH_USD_H_1 NapoX alloc ETH/BTC/USD AR hourly	1,333.44%	HOURLY
+ * Some bot ids on 2021-01-25
 
-STRAT_BTC_USD_FUNDING_8H_1 NapoX BTC Funding AR hourly	529.78%	HOURLY
+--------------- Hourly -------------------
+ 
+STRAT_BTC_ETH_USD_H_1 => NapoX alloc ETH/BTC/USD AR hourly
 
-STRAT_BTC_ETH_USD_LO_H_1 NapoX alloc ETH/BTC/USD LO hourly	650.87%	HOURLY
+STRAT_BTC_USD_FUNDING_8H_1 => NapoX BTC Funding AR hourlyY
 
-STRAT_ETH_USD_FUNDING_8H_1 NapoX ETH Funding AR hourly	324.61%	HOURLY
+STRAT_BTC_ETH_USD_LO_H_1 => NapoX alloc ETH/BTC/USD LO hourly
 
-STRAT_ETH_USD_H_3_V2 NapoX ETH Ultra flex AR hourly	674.24%	HOURLY
+STRAT_ETH_USD_FUNDING_8H_1 => NapoX ETH Funding AR hourly
 
-STRAT_BTC_USD_H_3_V2 NapoX BTC Ultra flex AR hourly	324.65%	HOURLY
+STRAT_ETH_USD_H_3_V2 => NapoX ETH Ultra flex AR hourly
 
-STRAT_ETH_USD_H_4_V2 NapoX ETH AR hourly	364.87%	HOURLY
+STRAT_BTC_USD_H_3_V2 => NapoX BTC Ultra flex AR hourly
 
-STRAT_BTC_USD_H_4_V2	NapoX BTC AR hourly	398.74%	HOURLY
+STRAT_ETH_USD_H_4_V2 => NapoX ETH AR hourly
 
---------------- daily -------------------
+STRAT_BTC_USD_H_4_V2 => NapoX BTC AR hourly
 
-STRAT_BTC_ETH_USD_LO_D_1 = NapoX alloc ETH/BTC/USD LO daily	653.95%	DAILY
+--------------- Daily -------------------
 
-STRAT_BTC_ETH_USD_D_1_V2 = NapoX alloc ETH/BTC/USD AR daily	561.76%	DAILY
+STRAT_BTC_ETH_USD_LO_D_1 = NapoX alloc ETH/BTC/USD LO daily
 
-STRAT_BCH_USD_LO_D_1 = NapoX BCH LO daily	23.52%	DAILY
+STRAT_BTC_ETH_USD_D_1_V2 = NapoX alloc ETH/BTC/USD AR daily
+
+STRAT_BCH_USD_LO_D_1 = NapoX BCH LO daily
 
  */
