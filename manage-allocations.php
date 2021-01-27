@@ -228,7 +228,7 @@ foreach($data as $exchange) {
 		throw new \Exception('no exchange found');
 	} else if (empty($exchange['compo'])) {
 		var_dump($exchange);
-		throw new \Exception("Invalid exchange data for [$exchange]");
+		throw new \Exception("Invalid exchange data for [".$exchange['exchange']."]\n\n");
 	}
 
 	$exchanges[$exchange['accountId']] = $exchange['compo'];
