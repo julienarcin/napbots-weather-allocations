@@ -97,6 +97,7 @@ function handle_args(){
 	global $verbose;
 	global $forced_market;
 	global $dry_run;
+	global $debug;
 	if(count($argv) > 1){
 		if ($debug) { var_dump($argv); }
 		if (in_array("force", $argv)) {
@@ -120,16 +121,17 @@ function handle_args(){
 function check_compositions($compositions)
 {
 	global $verbose;
+	global $debug;
 	foreach($compositions as $weather => $composition) {
 		if ($debug) echo("[$weather]\n");
 		$sum = 0.0;
 		foreach($composition['compo'] as $val){
 			if (true === $debug) echo("add $val\n");
-			$sum = floatval($val) + $sum;
+			$sum = floatval($val) + floatval($sum);
 		}
-		if ($debug) echo("sum: ".$sum."\n");
-		if (1 != $sum){
-			throw new \Exception("sum of you allocations for [$weather] is [$sum] it should be 1.0, check your numbers.");
+		if ($debug) printf("sum: %.1f\n", $sum);
+		if ($sum - 1.0 != 0){
+			throw new \Exception("sum of you allocations for [$weather] is [$sum] it should be [1.0], check your numbers.");
 		}
 	}
 	if($verbose) echo "composition sum is OK (1)\n";
