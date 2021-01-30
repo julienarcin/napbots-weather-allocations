@@ -92,30 +92,49 @@ function assign_composition($weather){
 	return $compositionToSet;
 }
 
+function usage(){
+	echo "possible args are:\n\n";
+	echo "force\n";
+	echo "extreme\n";
+	echo "mild_bull\n";
+	echo "mild_bear\n";
+	echo "dry\n";
+	echo "verbose\n";
+	echo "debug\n";
+}
 function handle_args(){
 	global $argv;
 	global $verbose;
 	global $forced_market;
 	global $dry_run;
 	global $debug;
-	if(count($argv) > 1){
-		if ($debug) { var_dump($argv); }
-		if (in_array("force", $argv)) {
-			if (in_array("extreme", $argv)) {
-				$forced_market = "extreme";
+	global $exit;
+
+	$copy_argv = $argv;
+	if(count($copy_argv) > 1){
+		if ($debug) { var_dump($copy_argv); }
+		array_shift($copy_argv); # remove $0
+
+		foreach($copy_argv as $arg){
+			switch ($arg) {
+			case "force": $force = true; break;
+			case "extreme": $forced_market = "extreme"; break;
+			case "custom": $forced_market = "custom"; break;
+			case "mild_bull": $forced_market = "mild_bull"; break;
+			case "mild_bear": $forced_market = "mild_bear"; break;
+			case "dry": $dry_run = true; break;
+			case "verbose": $verbose = true; break;
+			case "debug": $verbose = true; $debug = true; break;
+			case "dev": $exit = true; $verbose = true; $debug = true; break;
+			default:
+				echo "unkwon arg [$arg]\n\n";
+				usage();
+				exit(1);
+				break;
 			}
-			elseif (in_array("mild_bull", $argv)) {
-				$forced_market = "mild_bull";
-			}
-			elseif (in_array("mild_bear", $argv)) {
-				$forced_market = "mild_bear";
-			}
-			echo "forced market to [$forced_market]\n";
 		}
-		if (in_array("dry", $argv)) { $dry_run = true; }
-		if (in_array("verbose", $argv)) { $verbose = true; }
-		if (in_array("debug", $argv)) { $verbose = true; $debug = true; }
 	}
+	if(!$force) $forced_market = "";
 }
 
 function check_compositions($compositions)
@@ -166,6 +185,8 @@ echo "Crypto-weather is: " . $weather . "\n";
 
 echo "authentication to napbots....\n";
 
+if ($exit) { echo "exit0\n"; exit(0);}
+
 // Login to app (get auth token)
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/user/login' );
@@ -173,6 +194,7 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
 curl_setopt($ch, CURLOPT_POST, 1);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['email' => $email, 'password' => $password])); 
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']); 
+curl_setopt($ch, CURLOPT_TIMEOUT, 45000); // 45s timeout
 $response = curl_exec ($ch);
 curl_close($ch);
 
@@ -208,7 +230,7 @@ foreach($data as $exchange) {
 		throw new \Exception('no exchange found');
 	} else if (empty($exchange['compo'])) {
 		var_dump($exchange);
-		throw new \Exception("Invalid exchange data for [$exchange]");
+		throw new \Exception("Invalid exchange data for [".$exchange['exchange']."]\n\n");
 	}
 
 	$exchanges[$exchange['accountId']] = $exchange['compo'];
@@ -229,8 +251,11 @@ foreach($exchanges as $exchangeId => $exchange) {
 	if(array_diff($exchange['compo'], $compositionToSet['compo'])) {
 		$toUpdate = true;
 		if ($verbose){
-			echo "your old allocation was\n";
-			echo var_dump(array_diff($exchange['compo'], $compositionToSet['compo']));
+			echo "BEFORE\n";
+			echo var_dump($exchange['compo']);
+			echo "AFTER\n";
+			echo var_dump($compositionToSet['compo']);
+
 		}
 	}
 
