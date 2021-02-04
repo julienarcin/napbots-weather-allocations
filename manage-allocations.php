@@ -200,8 +200,10 @@ curl_close($ch);
 
 $authToken = json_decode($response,true)['data']['accessToken'];
 if(!$authToken) {
-	throw new \Exception('Unable to get auth token.');
+	throw new \Exception("Unable to get auth token.\n\nDOUBLE CHECK YOUR CREDENTIALS login / password.\n\n");
 }
+
+echo "auth napbot OK\n";
 
 // Get current allocation for all exchanges
 $ch = curl_init();
@@ -209,12 +211,14 @@ curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/account/for-user/' 
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'token: ' . $authToken]); 
 $response = curl_exec ($ch);
+if ($response === "") {
+	throw new \Exception("Wrong userid ?\nUnable to retrive account infos\nDOUBLE CHECK YOUR USERID.\n\n");
+}
 curl_close($ch);
 
-$data = json_decode($response,true)['data'];
+echo "user id infos retrieval OK\n";
 
-echo "auth napbot OK\n";
-// print var_dump($data);
+$data = json_decode($response,true)['data'];
 
 // Rebuild exchanges array
 $exchanges = [];
