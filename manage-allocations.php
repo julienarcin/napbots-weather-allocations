@@ -58,6 +58,15 @@ $debug = false;
 $verbose = false;
 $dry_run = false;
 $exchange_ignore_list = [];
+$ts_last = 0;
+
+$ts_last_file = '.ts_last';
+$ts_last_fp = fopen($ts_last_file, file_exists($ts_last_file) ? 'r+' : 'w');
+
+if(filesize($ts_last_file) > 0){
+  $ts_last = intval(fread($ts_last_fp, filesize($ts_last_file)));
+  rewind($ts_last_fp);
+}
 
 if (file_exists('config.php')){
 	include 'config.php';
@@ -68,7 +77,9 @@ function get_market(){
 	// Get crypto weather
 	$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
 	if($weatherApi) {
-		$weather = json_decode($weatherApi,true)['data']['weather']['weather'];
+		$weatherJson = json_decode($weatherApi,true);
+		$weather['weather'] = $weatherJson['data']['weather']['weather'];
+		$weather['ts'] = $weatherJson['data']['weather']['ts'];
 	}
 	return $weather;
 }
@@ -162,10 +173,13 @@ handle_args();
 
 check_compositions($compositions);
 if ("" === $forced_market) {
-	$weather = get_market();
+	$weatherArr = get_market();
+	$weather = $weatherArr['weather'];
+	$weather_ts = $ts_timestamp = DateTime::createFromFormat("Y-m-d\TH:i:s+", $weatherArr['ts'], new DateTimeZone("UTC"))->getTimestamp();
 	$compositionToSet = assign_composition($weather);
 } else {
 	$weather = "FORCED";
+	$weather_ts = time();
 	$compositionToSet = $compositions[$forced_market];
 }
 
@@ -250,9 +264,16 @@ foreach($exchanges as $exchangeId => $exchange) {
 	if(floatval($exchange['leverage']) !== floatval($compositionToSet['leverage'])) {
 		$toUpdate = true;
 	}
-
-	// If composition different, set to update
-	if(array_diff($exchange['compo'], $compositionToSet['compo'])) {
+	
+	//if not dry_run, update ts_last_file if updated
+	if (! $dry_run){
+		if($weather_ts > $ts_last){
+			fwrite($ts_last_fp, $weather_ts);
+		}
+	}
+	
+	// If composition different and updated, set to update
+	if(array_diff($exchange['compo'], $compositionToSet['compo']) && $weather_ts > $ts_last) {
 		$toUpdate = true;
 		if ($verbose){
 			echo "BEFORE\n";
@@ -262,7 +283,9 @@ foreach($exchanges as $exchangeId => $exchange) {
 
 		}
 	}
-
+	
+	fclose($ts_last_fp);
+	
 	// If composition different, update allocation for this exchange
 	if(! $toUpdate) {
 		// Log
