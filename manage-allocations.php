@@ -19,31 +19,30 @@ $userId = ''; // How to find userId: https://imgur.com/a/fW4I8Be
 // Weather dependent compositions
 //  - Total of allocations should be equal to 1
 //  - Leverage should be between 0.00 and 1.50
-//  - How to find bot IDS: https://imgur.com/a/ayit9pR
 $compositions = [
 	'mild_bear' => [
 		'compo' => [
-			'STRAT_BTC_USD_FUNDING_8H_1' => 0.15,
-			'STRAT_ETH_USD_FUNDING_8H_1' => 0.15,
-			'STRAT_BTC_ETH_USD_H_1' => 0.70,
+			'NapoX BTC Funding AR hourly' => 0.15,
+			'NapoX ETH Funding AR hourly' => 0.15,
+			'NapoX alloc ETH/BTC/USD AR hourly' => 0.70,
 		],
 		'leverage' => 1.0,
 		'botOnly' => true
 	],
 	'mild_bull' => [
 		'compo' => [
-			'STRAT_BTC_USD_FUNDING_8H_1' => 0.25,
-			'STRAT_ETH_USD_FUNDING_8H_1' => 0.25,
-			'STRAT_BTC_ETH_USD_H_1' => 0.50,
+			'NapoX BTC Funding AR hourly' => 0.25,
+			'NapoX ETH Funding AR hourly' => 0.25,
+			'NapoX alloc ETH/BTC/USD AR hourly' => 0.50,
 		],
 		'leverage' => 1.5,
 		'botOnly' => true
 	],
 	'extreme' => [
 		'compo' => [
-			'STRAT_ETH_USD_H_3_V2' => 0.4,
-			'STRAT_BTC_USD_H_3_V2' => 0.4,
-			'STRAT_BTC_ETH_USD_H_1' => 0.2,
+			'NapoX ETH Ultra flex AR hourly' => 0.4,
+			'NapoX BTC Ultra flex AR hourly' => 0.4,
+			'NapoX alloc ETH/BTC/USD AR hourly' => 0.2,
 		],
 		'leverage' => 1.0,
 		'botOnly' => true
@@ -73,17 +72,47 @@ function get_market(){
 	return $weather;
 }
 
+function get_strategies_code(){
+	// Get strategies code
+	$strategiesApi = file_get_contents('https://middle.napbots.com/v1/strategy');
+	$codes = [];
+	if($strategiesApi) {
+		$strategies = json_decode($strategiesApi, true)['data'];
+		foreach($strategies as $strat){
+			$codes[$strat['label']] = $strat['code'];
+		}
+	}
+	return $codes;
+}
+
 function assign_composition($weather){
-	$compositionToSet = null;
 	global $compositions;
+	global $debug;
+	$compositionToSet = null;
+	$strategies_code = get_strategies_code();
+	$coded_compositions = [];
+	foreach($compositions as $comp_weather => $composition) {
+		$coded_compositions[$comp_weather] = [];
+		foreach($composition as $config => $value) {
+			if($config === 'compo') {
+				$val = [];
+				foreach($value as $label => $percentage) {
+					$val[$strategies_code[$label]] = $percentage;
+				}
+				$coded_compositions[$comp_weather][$config] = $val;
+			} else {
+				$coded_compositions[$comp_weather][$config] = $value;
+			}
+		}
+	}
 	// Find composition to set
 	if($debug) echo "enter assign_composition [$weather]\n";
 	if($weather === 'Extreme markets') {
-		$compositionToSet = $compositions['extreme'];
+		$compositionToSet = $coded_compositions['extreme'];
 	} elseif($weather === 'Mild bull markets'){
-		$compositionToSet = $compositions['mild_bull'];
+		$compositionToSet = $coded_compositions['mild_bull'];
 	} elseif($weather === 'Mild bear or range markets') {
-		$compositionToSet = $compositions['mild_bear'];
+		$compositionToSet = $coded_compositions['mild_bear'];
 	} else {
 		throw new \Exception('Invalid crypto-weather: ' . $weather);
 	}
@@ -226,11 +255,10 @@ $exchanges_names = [];
 foreach($data as $exchange) {
 	if (in_array($exchange['exchange'], $exchange_ignore_list)){
 		echo "as requested, ignoring [".$exchange['exchange']."]\n";
-	       	continue;
+		continue;
 	}
 
-	if(empty($exchange['accountId']))
-	{
+	if(empty($exchange['accountId'])) {
 		throw new \Exception('no exchange found');
 	} else if (empty($exchange['compo'])) {
 		var_dump($exchange);
@@ -298,3 +326,5 @@ foreach($exchanges as $exchangeId => $exchange) {
 		echo "nothing was done to your account\n";
 	}
 }
+
+?>
