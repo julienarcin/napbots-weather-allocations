@@ -7,9 +7,18 @@ $exchange_ignore_list = [];
 
 function get_market() {
 	// Get crypto weather
-	$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
-	if ($weatherApi)
-		$weather = json_decode($weatherApi, true)['data']['weather']['weather'];
+	$weather = ''; $ts_max = '';
+	for ($i = 1; $i <= 10; $i++) {
+		$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
+		if ($weatherApi) {
+			$ts = json_decode($weatherApi, true)['data']['weather']['ts'];
+			if ($ts > $ts_max) {
+				$weather = json_decode($weatherApi, true)['data']['weather']['weather'];
+				$ts_max = $ts;
+			}
+		}
+		usleep(250000);
+	}
 	return $weather;
 }
 
