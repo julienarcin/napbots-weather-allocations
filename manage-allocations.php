@@ -1,98 +1,78 @@
 <?php
 
-/**
- * DYNAMIC NAPBOTS ALLOCATION
- * (beta version, please double-check if its working properly)
- */
-
-
-/**
- * Configurations variables here
- */
-
-
-// Account details
-$email = '';
-$password = '';
-$userId = ''; // How to find userId: https://imgur.com/a/fW4I8Be
-
-// Weather dependent compositions
-//  - Total of allocations should be equal to 1
-//  - Leverage should be between 0.00 and 1.50
-//  - How to find bot IDS: https://imgur.com/a/ayit9pR
-$compositions = [
-	'mild_bear' => [
-		'compo' => [
-			'STRAT_BTC_USD_FUNDING_8H_1' => 0.15,
-			'STRAT_ETH_USD_FUNDING_8H_1' => 0.15,
-			'STRAT_BTC_ETH_USD_H_1' => 0.70,
-		],
-		'leverage' => 1.0,
-		'botOnly' => true
-	],
-	'mild_bull' => [
-		'compo' => [
-			'STRAT_BTC_USD_FUNDING_8H_1' => 0.25,
-			'STRAT_ETH_USD_FUNDING_8H_1' => 0.25,
-			'STRAT_BTC_ETH_USD_H_1' => 0.50,
-		],
-		'leverage' => 1.5,
-		'botOnly' => true
-	],
-	'extreme' => [
-		'compo' => [
-			'STRAT_ETH_USD_H_3_V2' => 0.4,
-			'STRAT_BTC_USD_H_3_V2' => 0.4,
-			'STRAT_BTC_ETH_USD_H_1' => 0.2,
-		],
-		'leverage' => 1.0,
-		'botOnly' => true
-	]
-];
-
-/**
- * Script (do not touch here)
- */
-
 $debug = false;
 $verbose = false;
 $dry_run = false;
 $exchange_ignore_list = [];
 
-if (file_exists('config.php')){
-	include 'config.php';
-}
-
-
-function get_market(){
+function get_market() {
 	// Get crypto weather
-	$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
-	if($weatherApi) {
-		$weather = json_decode($weatherApi,true)['data']['weather']['weather'];
+	$weather = ''; $ts_max = '';
+	for ($i = 1; $i <= 10; $i++) {
+		$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
+		if ($weatherApi) {
+			$ts = json_decode($weatherApi, true)['data']['weather']['ts'];
+			if ($ts > $ts_max) {
+				$weather = json_decode($weatherApi, true)['data']['weather']['weather'];
+				$ts_max = $ts;
+			}
+		}
+		usleep(250000);
 	}
 	return $weather;
 }
 
-function assign_composition($weather){
-	$compositionToSet = null;
-	global $compositions;
-	// Find composition to set
-	if($debug) echo "enter assign_composition [$weather]\n";
-	if($weather === 'Extreme markets') {
-		$compositionToSet = $compositions['extreme'];
-	} elseif($weather === 'Mild bull markets'){
-		$compositionToSet = $compositions['mild_bull'];
-	} elseif($weather === 'Mild bear or range markets') {
-		$compositionToSet = $compositions['mild_bear'];
-	} else {
-		throw new \Exception('Invalid crypto-weather: ' . $weather);
+function get_strategies_code() {
+	// Get strategies code
+	global $debug;
+	$strategiesApi = file_get_contents('https://middle.napbots.com/v1/strategy');
+	$codes = [];
+	if ($strategiesApi) {
+		$strategies = json_decode($strategiesApi, true)['data'];
+		foreach ($strategies as $strat) {
+			$codes[$strat['label']] = $strat['code'];
+		}
 	}
-	if($debug) echo "OUT assign_composition [$compositionToSet]\n";
-	if($debug) var_dump($compositionToSet);
+	if ($debug) var_dump($codes);
+	return $codes;
+}
+
+function assign_composition($weather) {
+	global $compositions;
+	global $debug;
+	// Find composition to set
+	if ($debug) echo "enter assign_composition [$weather]\n";
+	$compositionToSet = null;
+	$strategies_code = get_strategies_code();
+	$coded_compositions = [];
+	foreach ($compositions as $comp_weather => $composition) {
+		$coded_compositions[$comp_weather] = [];
+		foreach ($composition as $config => $value) {
+			if ($config === 'compo') {
+				$val = [];
+				foreach ($value as $label => $percentage) {
+					$val[$strategies_code[$label]] = round($percentage, 2);
+				}
+				$coded_compositions[$comp_weather][$config] = $val;
+			} else {
+				$coded_compositions[$comp_weather][$config] = $value;
+			}
+		}
+	}
+	switch ($weather) {
+		case 'Extreme markets':            $compositionToSet = $coded_compositions['extreme']; break;
+		case 'Mild bull markets':          $compositionToSet = $coded_compositions['mild_bull']; break;
+		case 'Mild bear or range markets': $compositionToSet = $coded_compositions['mild_bear']; break;
+		default: throw new \Exception('Invalid crypto-weather: ' . $weather); break;
+	}
+	if ($debug) {
+		echo "OUT assign_composition [$compositionToSet]\n";
+		var_dump($compositionToSet);
+	}
 	return $compositionToSet;
 }
 
-function usage(){
+function usage() {
 	echo "possible args are:\n\n";
 	echo "force\n";
 	echo "extreme\n";
@@ -101,8 +81,10 @@ function usage(){
 	echo "dry\n";
 	echo "verbose\n";
 	echo "debug\n";
+	echo "dev\n";
 }
-function handle_args(){
+
+function handle_args() {
 	global $argv;
 	global $verbose;
 	global $forced_market;
@@ -111,11 +93,11 @@ function handle_args(){
 	global $exit;
 
 	$copy_argv = $argv;
-	if(count($copy_argv) > 1){
-		if ($debug) { var_dump($copy_argv); }
+	if (count($copy_argv) > 1) {
+		if ($debug) var_dump($copy_argv);
 		array_shift($copy_argv); # remove $0
 
-		foreach($copy_argv as $arg){
+		foreach ($copy_argv as $arg) {
 			switch ($arg) {
 			case "force": $force = true; break;
 			case "extreme": $forced_market = "extreme"; break;
@@ -134,34 +116,35 @@ function handle_args(){
 			}
 		}
 	}
-	if(!$force) $forced_market = "";
+	if (!$force) $forced_market = "";
 }
 
-function check_compositions($compositions)
-{
+function check_compositions($compositions) {
 	global $verbose;
 	global $debug;
-	foreach($compositions as $weather => $composition) {
-		if ($debug) echo("[$weather]\n");
-		$sum = 0.0;
-		foreach($composition['compo'] as $val){
-			if (true === $debug) echo("add $val\n");
-			$sum = floatval($val) + floatval($sum);
-		}
-		if ($debug) printf("sum: %.1f\n", $sum);
-		if ($sum - 1.0 != 0){
-			throw new \Exception("sum of you allocations for [$weather] is [$sum] it should be [1.0], check your numbers.");
-		}
+	foreach ($compositions as $weather => $composition) {
+		$sum = round(array_sum($composition['compo']), 2);
+		if ($debug) printf("[$weather] sum: %.2f\n", $sum);
+		if ($sum != 1)
+			throw new \Exception("sum of you allocations for [$weather] is [$sum] it should be [1], check your numbers.");
+		if ($composition['leverage'] < 0 or $composition['leverage'] > 1.5)
+			throw new \Exception("The leverage of the allocation for [$weather] is [" . $composition['leverage'] . "] it should be between 0.00 and 1.50.");
 	}
-	if($verbose) echo "composition sum is OK (1)\n";
+	if ($verbose) echo "composition sums are OK (1)\n";
 }
 
+try {
+	include 'config.php';
+	if ($verbose) echo "[config.php] imported\n";
+} catch (Exception $e) {
+	throw new \Exception("[config.php] not imported: ", $e->getMessage(), "\n");
+}
 
 $forced_market = "";
 handle_args();
 
 check_compositions($compositions);
-if ("" === $forced_market) {
+if ($forced_market == "") {
 	$weather = get_market();
 	$compositionToSet = assign_composition($weather);
 } else {
@@ -169,23 +152,26 @@ if ("" === $forced_market) {
 	$compositionToSet = $compositions[$forced_market];
 }
 
-if ($verbose){
+if ($verbose) {
 	echo "weather          [$weather]\n";
 	echo "forced           [$forced_market]\n";
 	echo "simulation mode  [$dry_run]\n";
 	echo "compositionToSet [$compositionToSet]\n";
-	if($debug) var_dump($compositionToSet);
+	if ($debug) var_dump($compositionToSet);
 }
 
-if('array' != gettype($compositionToSet)) 
+if ('array' != gettype($compositionToSet)) 
 	throw new \Exception("error [$compositionToSet] is not an array, script is broken somewhere CANCELING EVERYTHING.\nAccount left untouched.\n\n");
 
 // Log
-echo "Crypto-weather is: " . $weather . "\n";
+echo "Crypto-weather is: $weather\n";
+
+if ($exit) {
+	echo "dev mode --> exit\n";
+	exit(0);
+}
 
 echo "authentication to napbots....\n";
-
-if ($exit) { echo "exit0\n"; exit(0);}
 
 // Login to app (get auth token)
 $ch = curl_init();
@@ -195,81 +181,88 @@ curl_setopt($ch, CURLOPT_POST, 1);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['email' => $email, 'password' => $password])); 
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']); 
 curl_setopt($ch, CURLOPT_TIMEOUT, 45000); // 45s timeout
-$response = curl_exec ($ch);
+$response = curl_exec($ch);
 curl_close($ch);
 
 $authToken = json_decode($response,true)['data']['accessToken'];
-if(!$authToken) {
+if (!$authToken) {
 	throw new \Exception("Unable to get auth token.\n\nDOUBLE CHECK YOUR CREDENTIALS login / password.\n\n");
 }
 
-echo "auth napbot OK\n";
+echo "authentication to napbots OK\n";
+
+// Get userId
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/user/me');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'token: ' . $authToken]); 
+$response = curl_exec($ch);
+curl_close($ch);
+if ($response === "") {
+	throw new \Exception("Unable to retrieve account infos\nDOUBLE CHECK YOUR USERID.\n\n");
+}
+
+$userId = json_decode($response, true)['data']['userId'];
+echo "userId has been retrieved: [$userId]\n";
 
 // Get current allocation for all exchanges
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/account/for-user/' . $userId);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'token: ' . $authToken]); 
-$response = curl_exec ($ch);
-if ($response === "") {
-	throw new \Exception("Wrong userid ?\nUnable to retrive account infos\nDOUBLE CHECK YOUR USERID.\n\n");
-}
+$response = curl_exec($ch);
 curl_close($ch);
+if ($response === "") {
+	throw new \Exception("Wrong userid ?\nUnable to retrieve account infos\nDOUBLE CHECK YOUR USERID.\n\n");
+}
 
-echo "user id infos retrieval OK\n";
-
-$data = json_decode($response,true)['data'];
+echo "current allocation retrieval OK\n";
+$data = json_decode($response, true)['data'];
 
 // Rebuild exchanges array
 $exchanges = [];
 $exchanges_names = [];
-foreach($data as $exchange) {
-	if (in_array($exchange['exchange'], $exchange_ignore_list)){
-		echo "as requested, ignoring [".$exchange['exchange']."]\n";
-	       	continue;
+foreach ($data as $exchange) {
+	if (in_array($exchange['exchange'], $exchange_ignore_list)) {
+		echo "as requested, ignoring [" . $exchange['exchange'] . "]\n";
+		continue;
 	}
-
-	if(empty($exchange['accountId']))
-	{
+	
+	if (empty($exchange['accountId'])) {
 		throw new \Exception('no exchange found');
-	} else if (empty($exchange['compo'])) {
-		var_dump($exchange);
-		throw new \Exception("Invalid exchange data for [".$exchange['exchange']."]\n\n");
+	} elseif (empty($exchange['compo'])) {
+		if ($debug) var_dump($exchange);
+		throw new \Exception("Invalid exchange data for [" . $exchange['exchange'] . "]\n\n");
 	}
-
+	
 	$exchanges[$exchange['accountId']] = $exchange['compo'];
 	$exchanges_names[$exchange['accountId']] = $exchange['exchange'];
 }
 
 // For each exchange, change allocation if different from crypto weather one
-foreach($exchanges as $exchangeId => $exchange) {
-	// Don't update by default
-	$toUpdate = false;
-
-	// If leverage different, set to update
-	if(floatval($exchange['leverage']) !== floatval($compositionToSet['leverage'])) {
+foreach ($exchanges as $exchangeId => $exchange) {
+	// If the leverage is different, set toUpdate
+	$toUpdate = (floatval($exchange['leverage']) != floatval($compositionToSet['leverage']));
+	
+	// If composition different, set toUpdate
+	if ($exchange['compo'] != $compositionToSet['compo']) {
 		$toUpdate = true;
-	}
-
-	// If composition different, set to update
-	if(array_diff($exchange['compo'], $compositionToSet['compo'])) {
-		$toUpdate = true;
-		if ($verbose){
+		if ($verbose) {
 			echo "BEFORE\n";
-			echo var_dump($exchange['compo']);
+			var_dump($exchange['compo']);
 			echo "AFTER\n";
-			echo var_dump($compositionToSet['compo']);
-
+			var_dump($compositionToSet['compo']);
 		}
 	}
-
+	
 	// If composition different, update allocation for this exchange
-	if(! $toUpdate) {
+	if (! $toUpdate) {
 		// Log
 		echo "Nothing to update for exchange " . $exchanges_names[$exchangeId] . " ". $exchangeId . "\n";
 		continue;
 	}
-
+	
+	// If composition different, update allocation for this exchange
 	// Rebuild string for composition
 	$params = json_encode([
 		'botOnly' => $compositionToSet['botOnly'],
@@ -278,23 +271,23 @@ foreach($exchanges as $exchangeId => $exchange) {
 			'compo' => $compositionToSet['compo']
 		]
 	]);
-
-	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/account/' . $exchangeId);
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
-	curl_setopt($ch, CURLOPT_POST, 1);
-	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
-	curl_setopt($ch, CURLOPT_POSTFIELDS, $params); 
-	curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'token: ' . $authToken]); 
-	curl_setopt($ch, CURLOPT_HEADER  , true);
-	if (! $dry_run){
+	
+	if (! $dry_run) {
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/account/' . $exchangeId);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
+		curl_setopt($ch, CURLOPT_POST, 1);
+		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $params); 
+		curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'token: ' . $authToken]); 
+		curl_setopt($ch, CURLOPT_HEADER, true);
 		$response = curl_exec ($ch);
 		curl_close($ch);
 		// Log
 		echo "Updated allocation for exchange " .$exchanges_names[$exchangeId] . " ". $exchangeId . "\n";
-	}
-	else{
-		echo "DRY RUN MODE\n";
-		echo "nothing was done to your account\n";
+	} else {
+		echo "DRY RUN MODE\nnothing was done to your account\n";
 	}
 }
+
+?>
