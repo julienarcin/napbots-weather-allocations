@@ -77,7 +77,7 @@ function handle_args(){
 
 	$copy_argv = $argv;
 	if(count($copy_argv) > 1){
-		if ($debug) { var_dump($copy_argv); }
+		if ($debug) var_dump($copy_argv);
 		array_shift($copy_argv); # remove $0
 
 		foreach($copy_argv as $arg){
@@ -110,7 +110,7 @@ function check_compositions($compositions)
 		if ($debug) echo("[$weather]\n");
 		$sum = round(array_sum($composition['compo']), 3);
 		if ($debug) printf("sum: %.1f\n", $sum);
-		if ($sum - 1.0 != 0){
+		if ($sum == 1){
 			throw new \Exception("sum of you allocations for [$weather] is [$sum] it should be [1.0], check your numbers.");
 		}
 	}
