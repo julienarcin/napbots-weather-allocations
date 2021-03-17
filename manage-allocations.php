@@ -3,54 +3,6 @@
 /**
  * DYNAMIC NAPBOTS ALLOCATION
  * (beta version, please double-check if its working properly)
- */
-
-
-/**
- * Configurations variables here
- */
-
-
-// Account details
-$email = '';
-$password = '';
-$userId = ''; // How to find userId: https://imgur.com/a/fW4I8Be
-
-// Weather dependent compositions
-//  - Total of allocations should be equal to 1
-//  - Leverage should be between 0.00 and 1.50
-//  - How to find bot IDS: https://imgur.com/a/ayit9pR
-$compositions = [
-	'mild_bear' => [
-		'compo' => [
-			'STRAT_BTC_USD_FUNDING_8H_1' => 0.15,
-			'STRAT_ETH_USD_FUNDING_8H_1' => 0.15,
-			'STRAT_BTC_ETH_USD_H_1' => 0.70,
-		],
-		'leverage' => 1.0,
-		'botOnly' => true
-	],
-	'mild_bull' => [
-		'compo' => [
-			'STRAT_BTC_USD_FUNDING_8H_1' => 0.25,
-			'STRAT_ETH_USD_FUNDING_8H_1' => 0.25,
-			'STRAT_BTC_ETH_USD_H_1' => 0.50,
-		],
-		'leverage' => 1.5,
-		'botOnly' => true
-	],
-	'extreme' => [
-		'compo' => [
-			'STRAT_ETH_USD_H_3_V2' => 0.4,
-			'STRAT_BTC_USD_H_3_V2' => 0.4,
-			'STRAT_BTC_ETH_USD_H_1' => 0.2,
-		],
-		'leverage' => 1.0,
-		'botOnly' => true
-	]
-];
-
-/**
  * Script (do not touch here)
  */
 
@@ -59,16 +11,28 @@ $verbose = false;
 $dry_run = false;
 $exchange_ignore_list = [];
 
-if (file_exists('config.php')){
+try {
 	include 'config.php';
+	if ($verbose) echo "[config.php] imported\n";
+} catch (Exception $e) {
+	throw new \Exception("[config.php] not imported: ", $e->getMessage(), "\n");
 }
 
 
-function get_market(){
+function get_market() {
 	// Get crypto weather
-	$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
-	if($weatherApi) {
-		$weather = json_decode($weatherApi,true)['data']['weather']['weather'];
+	$weather = ''; $ts_max = '';
+	for ($i = 1; $i <= 10; $i++) {
+		$weatherApi = file_get_contents('https://middle.napbots.com/v1/crypto-weather');
+		if ($weatherApi) {
+			$data = json_decode($weatherApi, true)['data']['weather'];
+			$ts = $data['ts'];
+			if ($ts > $ts_max) {
+				$weather = $data['weather'];
+				$ts_max = $ts;
+			}
+		}
+		usleep(250000);
 	}
 	return $weather;
 }
@@ -76,6 +40,7 @@ function get_market(){
 function assign_composition($weather){
 	$compositionToSet = null;
 	global $compositions;
+	global $debug;
 	// Find composition to set
 	if($debug) echo "enter assign_composition [$weather]\n";
 	if($weather === 'Extreme markets') {
@@ -112,7 +77,7 @@ function handle_args(){
 
 	$copy_argv = $argv;
 	if(count($copy_argv) > 1){
-		if ($debug) { var_dump($copy_argv); }
+		if ($debug) var_dump($copy_argv);
 		array_shift($copy_argv); # remove $0
 
 		foreach($copy_argv as $arg){
@@ -143,13 +108,9 @@ function check_compositions($compositions)
 	global $debug;
 	foreach($compositions as $weather => $composition) {
 		if ($debug) echo("[$weather]\n");
-		$sum = 0.0;
-		foreach($composition['compo'] as $val){
-			if (true === $debug) echo("add $val\n");
-			$sum = floatval($val) + floatval($sum);
-		}
+		$sum = round(array_sum($composition['compo']), 3);
 		if ($debug) printf("sum: %.1f\n", $sum);
-		if ($sum - 1.0 != 0){
+		if ($sum == 1){
 			throw new \Exception("sum of you allocations for [$weather] is [$sum] it should be [1.0], check your numbers.");
 		}
 	}
@@ -198,12 +159,26 @@ curl_setopt($ch, CURLOPT_TIMEOUT, 45000); // 45s timeout
 $response = curl_exec ($ch);
 curl_close($ch);
 
-$authToken = json_decode($response,true)['data']['accessToken'];
+$authToken = json_decode($response, true)['data']['accessToken'];
 if(!$authToken) {
 	throw new \Exception("Unable to get auth token.\n\nDOUBLE CHECK YOUR CREDENTIALS login / password.\n\n");
 }
 
 echo "auth napbot OK\n";
+
+// Get userId
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/user/me');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'token: ' . $authToken]); 
+$response = curl_exec($ch);
+curl_close($ch);
+if ($response === "") {
+	throw new \Exception("Unable to retrieve account infos\nDOUBLE CHECK YOUR USERID.\n\n");
+}
+
+$userId = json_decode($response, true)['data']['userId'];
+echo "userId has been retrieved\n";
 
 // Get current allocation for all exchanges
 $ch = curl_init();
@@ -226,7 +201,7 @@ $exchanges_names = [];
 foreach($data as $exchange) {
 	if (in_array($exchange['exchange'], $exchange_ignore_list)){
 		echo "as requested, ignoring [".$exchange['exchange']."]\n";
-	       	continue;
+		continue;
 	}
 
 	if(empty($exchange['accountId']))
@@ -279,15 +254,15 @@ foreach($exchanges as $exchangeId => $exchange) {
 		]
 	]);
 
-	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/account/' . $exchangeId);
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
-	curl_setopt($ch, CURLOPT_POST, 1);
-	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
-	curl_setopt($ch, CURLOPT_POSTFIELDS, $params); 
-	curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'token: ' . $authToken]); 
-	curl_setopt($ch, CURLOPT_HEADER  , true);
 	if (! $dry_run){
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, 'https://middle.napbots.com/v1/account/' . $exchangeId);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1 );
+		curl_setopt($ch, CURLOPT_POST, 1);
+		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $params); 
+		curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'token: ' . $authToken]); 
+		curl_setopt($ch, CURLOPT_HEADER, true);
 		$response = curl_exec ($ch);
 		curl_close($ch);
 		// Log
@@ -298,3 +273,5 @@ foreach($exchanges as $exchangeId => $exchange) {
 		echo "nothing was done to your account\n";
 	}
 }
+
+?>

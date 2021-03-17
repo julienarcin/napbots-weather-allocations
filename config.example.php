@@ -3,7 +3,6 @@
 // Account details
 $email = '';
 $password = '';
-$userId = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'; // How to find userId: https://imgur.com/a/fW4I8Be
 
 // simulation mode
 $dry_run = true;
@@ -83,3 +82,5 @@ STRAT_BTC_ETH_USD_D_1_V2 = NapoX alloc ETH/BTC/USD AR daily
 STRAT_BCH_USD_LO_D_1 = NapoX BCH LO daily
 
  */
+
+?>
